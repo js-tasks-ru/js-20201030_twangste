@@ -1,0 +1,128 @@
+export default class SortableList {
+
+  constructor({items = []}) {
+    this.subElements = items;
+    this.render();
+    this.initEventListeners();
+  }
+
+  render() {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = this.getTemplate();
+    this.element = wrapper.firstElementChild;
+    this.subElements.forEach(item => {
+      if (!item.classList.contains('sortable-list__item')) {
+        item.classList.add('sortable-list__item');
+      }
+      this.element.appendChild(item);
+    });
+    return this.element;
+  }
+
+  getTemplate() {
+    return `<ul class='sortable-list'></ul>`;
+  }
+
+  initEventListeners() {
+    this.subElements.forEach(item => {
+      const grabHandleElement = item.querySelector('[data-grab-handle]');
+      const deleteHandleElement = item.querySelector('[data-delete-handle]');
+
+      grabHandleElement.addEventListener('pointerdown', this.onPointerDown);
+      item.addEventListener('pointerup', this.onPointerUp);
+
+      deleteHandleElement.addEventListener('click', this.onDelete);
+
+    });
+  }
+
+  getArrowItem() {
+    return `<li class="sortable-list__item sortable-list__placeholder"></li>`;
+  }
+
+  onPointerDown = (event) => {
+    const MOUSE_LEFT_BUTTON = 1;
+    if (event.which !== MOUSE_LEFT_BUTTON) {
+      return false;
+    }
+    const element = event.target.closest('.sortable-list__item');
+
+    this.shiftX = event.clientX - element.getBoundingClientRect().left;
+    this.shiftY = event.clientY - element.getBoundingClientRect().top;
+
+    const {width, height, left, top, right, bottom} = element.getBoundingClientRect();
+    this.elementStyles = {width, height, left, top, right, bottom};
+    Object.entries(this.elementStyles).map(([key, value]) => {
+      element.style[key] = value + 'px';
+    });
+
+    //NOTE: Вставим пустой элемент на место выбранного
+    // const placeholderWrapper = document.createElement('div');
+    // placeholderWrapper.innerHTML = this.getArrowItem();
+    // this.subElements.placeholder = [];
+    // this.subElements.placeholder.push(placeholderWrapper.firstElementChild);
+    // element.after(this.subElements.placeholder[0]);
+
+    element.classList.add('sortable-list__item_dragging');
+
+    // this.element.append(element);
+
+    this.moveAt(element, event.pageX, event.pageY);
+    document.addEventListener('pointermove', this.onPointerMove);
+  }
+
+  moveAt(element, pageX, pageY) {
+    element.style.left = pageX - this.shiftX + 'px';
+    element.style.top = pageY - this.shiftY + 'px';
+  }
+
+  onPointerMove = (event) => {
+    const element = this.element.querySelector('.sortable-list__item_dragging');
+    element.hidden = true;
+    const elementBellow = document.elementFromPoint(event.clientX, event.clientY);
+    element.hidden = false;
+
+    this.moveAt(element, event.pageX, event.pageY);
+  }
+
+  onPointerUp = (event) => {
+
+    document.removeEventListener('pointermove', this.onPointerMove);
+
+    if (this.subElements.placeholder && this.subElements.placeholder.length) {
+      this.subElements.placeholder.reduce((accum, item) => {
+        item.remove();
+        return accum;
+      }, []);
+    }
+
+    const element = event.target.closest('.sortable-list__item');
+    Object.entries(this.elementStyles).map(([key, value]) => {
+      element.style[key] = null;
+    });
+    element.classList.remove('sortable-list__item_dragging');
+
+
+    this.shiftX = null;
+    this.shiftY = null;
+  }
+
+  onDelete = (event) => {
+    const currentElement = event.target.closest('.sortable-list__item');
+    const element = this.subElements.find(item => item === currentElement);
+    this.subElements.splice(this.subElements.indexOf(currentElement), 1);
+    element.remove();
+  }
+
+  remove() {
+    if (this.element) {
+      this.element.remove();
+    }
+  }
+
+  destroy() {
+    this.remove();
+    this.subElements = null;
+  }
+
+}
